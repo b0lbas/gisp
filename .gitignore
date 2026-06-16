@@ -1,0 +1,11 @@
+# Binaries
+gisp
+tests/test_runner
+
+#Objectss
+obj/
+*.o
+
+#Temp files
+*.tmp
+*.gisp
