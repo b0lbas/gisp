@@ -52,7 +52,8 @@ print_usage (const char *prog)
     "  -h, --help             Display this help and exit\n"
     "  -v, --version          Display version information and exit\n"
     "\n"
-    "Report bugs to: <cmrtumilovic@gmail.com>\n",
+    "Report bugs to: <cmrtumilovic@gmail.com>\n"
+    "Full documentation at: <https://github.com/b0lbas/gisp>\n",
     prog);
 }
 
