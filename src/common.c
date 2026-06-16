@@ -178,3 +178,38 @@ safely_open_input (const char *prog, const char *path, int64_t *out_size)
   *out_size = (int64_t) st.st_size;
   return fd;
 }
+
+int
+fsync_dir (const char *path)
+{
+  char *dir_path = strdup (path);
+  if (!dir_path)
+    return -1;
+
+  char *last_slash = strrchr (dir_path, '/');
+  if (last_slash)
+    {
+      if (last_slash == dir_path)
+        last_slash[1] = '\0';
+      else
+        *last_slash = '\0';
+    }
+  else
+    {
+      /* Current directory.  */
+      free (dir_path);
+      dir_path = strdup (".");
+    }
+
+  int fd = open (dir_path, O_RDONLY | O_DIRECTORY);
+  if (fd == -1)
+    {
+      free (dir_path);
+      return -1;
+    }
+
+  int res = fsync (fd);
+  close (fd);
+  free (dir_path);
+  return res;
+}

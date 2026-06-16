@@ -25,7 +25,7 @@
 
 static struct termios        g_old_termios;
 static volatile sig_atomic_t g_tty_hidden = 0;
-static volatile int          g_tty_fd     = -1;
+static volatile sig_atomic_t g_tty_fd     = -1;
 
 static void
 signal_handler (int sig)
@@ -41,10 +41,12 @@ signal_handler (int sig)
   else if (sig == SIGCONT)
     {
       struct sigaction sa;
-      memset (&sa, 0, sizeof (sa));
       sa.sa_handler = signal_handler;
       sigemptyset (&sa.sa_mask);
       sa.sa_flags = SA_RESTART;
+#if defined(SA_RESTORER)
+      sa.sa_restorer = NULL;
+#endif
       (void) sigaction (SIGINT,  &sa, NULL);
       (void) sigaction (SIGTERM, &sa, NULL);
       (void) sigaction (SIGQUIT, &sa, NULL);
@@ -66,7 +68,7 @@ signal_handler (int sig)
 }
 
 int
-terminal_init_signals (const char *prog)
+terminal_init_signals (void)
 {
   struct sigaction sa;
   memset (&sa, 0, sizeof (sa));
@@ -81,7 +83,7 @@ terminal_init_signals (const char *prog)
       || sigaction (SIGTSTP, &sa, NULL) != 0
       || sigaction (SIGCONT, &sa, NULL) != 0)
     {
-      fprintf (stderr, "%s: fatal: signal handler installation failed\n", prog);
+      fprintf (stderr, "%s: fatal: signal handler installation failed\n", PROGRAM_NAME);
       return -1;
     }
   return 0;

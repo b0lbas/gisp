@@ -162,7 +162,7 @@ encrypt_file (const char *prog, const char *in_path, const char *out_path,
       != (ssize_t) STREAM_HDR_SIZE)
     goto cleanup;
 
-  fprintf (stderr, "[+] File successfully encrypted.\n");
+  fprintf (stderr, "%s: file successfully encrypted\n", prog);
   res = 1;
 
 cleanup:
@@ -189,6 +189,14 @@ cleanup:
                    prog, strerror (errno));
           unlink (tmp_path);
           res = 0;
+        }
+      else
+        {
+          if (fsync_dir (out_path) != 0)
+            {
+              fprintf (stderr, "%s: warning: failed to sync parent directory: %s\n",
+                       prog, strerror (errno));
+            }
         }
     }
   else if (tmp_path)
@@ -378,7 +386,7 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
     }
   while (remaining > 0);
 
-  fprintf (stderr, "[+] File successfully decrypted.\n");
+  fprintf (stderr, "%s: file successfully decrypted\n", prog);
   res = 1;
 
 cleanup:
@@ -405,6 +413,14 @@ cleanup:
                    prog, strerror (errno));
           unlink (tmp_path);
           res = 0;
+        }
+      else
+        {
+          if (fsync_dir (out_path) != 0)
+            {
+              fprintf (stderr, "%s: warning: failed to sync parent directory: %s\n",
+                       prog, strerror (errno));
+            }
         }
     }
   else if (tmp_path)

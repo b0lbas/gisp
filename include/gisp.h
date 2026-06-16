@@ -44,6 +44,8 @@
 #define VAULT_MAGIC   "GISP"
 #define VAULT_VERSION 1
 
+#define PROGRAM_NAME  "gisp"
+
 #define OFST_MAGIC    0
 #define OFST_VERSION  4
 #define OFST_OPSLIMIT 6
@@ -74,12 +76,13 @@ int u64_mul_overflow (uint64_t a, uint64_t b, uint64_t *result);
 
 int check_same_file (int fd1, const char *path2);
 int safely_open_input (const char *prog, const char *path, int64_t *out_size);
+int fsync_dir (const char *path);
 
 /* ---------------------------------------------------------------------------
    Terminal and Signal handling (src/terminal.c).
    --------------------------------------------------------------------------- */
 
-int     terminal_init_signals (const char *prog);
+int     terminal_init_signals (void);
 ssize_t get_password_secure (const char *prompt, char *buf, size_t max_len);
 
 /* ---------------------------------------------------------------------------
