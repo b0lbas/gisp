@@ -34,8 +34,11 @@ test: all
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	install -m 0755 $(BIN) $(DESTDIR)$(PREFIX)/bin
+	mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1
+	install -m 0644 gisp.1 $(DESTDIR)$(PREFIX)/share/man/man1/
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin($(BIN)
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(BIN)
+	rm -f $(DESTDIR)$(PREFIX)/share/man/man1/gisp.1
 
 .PHONY: all clean test install uninstall

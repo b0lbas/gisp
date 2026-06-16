@@ -58,6 +58,8 @@ sudo make install
 
 **Uladzislau Bolbas** — [cmrtumilovic@gmail.com](mailto:cmrtumilovic@gmail.com)
 
+Project Link: [https://codeberg.org/artich0ke/gisp](https://codeberg.org/artich0ke/gisp)
+
 ## License
 
 GPL-3.0 or later. See headers in source files.

@@ -2,10 +2,16 @@
 gisp
 tests/test_runner
 
-#Objectss
+# Objects
 obj/
 *.o
 
-#Temp files
+# Temporary files
 *.tmp
 *.gisp
+*.txt
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store

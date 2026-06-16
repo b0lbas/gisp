@@ -1,6 +1,6 @@
 /* src/main.c -- gisp file encryption/decryption utility.
 
-   Copyright (C) 2025 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+   Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ print_usage (void)
     "  -v, --version          Display version information and exit\n"
     "\n"
     "Report bugs to: <cmrtumilovic@gmail.com>\n"
-    "Full documentation at: <https://github.com/b0lbas/gisp>\n",
+    "Full documentation at: <https://codeberg.org/artich0ke/gisp>\n",
     PROGRAM_NAME);
 }
 
@@ -63,7 +63,7 @@ static void
 print_version (void)
 {
   fprintf (stdout, "%s v%d.0 (libsodium hardened)\n", PROGRAM_NAME, VAULT_VERSION);
-  fprintf (stdout, "Copyright (C) 2025 Uladzislau Bolbas\n");
+  fprintf (stdout, "Copyright (C) 2026 Uladzislau Bolbas\n");
   fprintf (stdout, "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n");
   fprintf (stdout, "This is free software: you are free to change and redistribute it.\n");
   fprintf (stdout, "There is NO WARRANTY, to the extent permitted by law.\n");

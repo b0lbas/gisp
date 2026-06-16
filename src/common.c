@@ -1,6 +1,6 @@
 /* src/common.c -- gisp utility functions.
 
-   Copyright (C) 2025 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+   Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

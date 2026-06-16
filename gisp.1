@@ -1,0 +1,74 @@
+.TH GISP 1 "June 2026" "gisp 1.0" "User Commands"
+.SH NAME
+gisp \- encrypt or decrypt files using XChaCha20-Poly1305 and Argon2id
+.SH SYNOPSIS
+.B gisp
+[\fI\,OPTION\/\fR]...
+.SH DESCRIPTION
+.B gisp
+encrypts and decrypts files using the XChaCha20-Poly1305 authenticated encryption algorithm and the Argon2id key derivation function. Memory containing sensitive cryptographic material is locked to prevent swapping to disk and wiped immediately after use. File write operations use temporary files and atomic renaming to prevent data corruption.
+.SH OPTIONS
+.TP
+\fB\-e\fR, \fB\-\-encrypt\fR \fI\,FILE\/\fR
+Encrypt \fI\,FILE\/\fR and write the result to the destination path.
+.TP
+\fB\-d\fR, \fB\-\-decrypt\fR \fI\,VAULT\/\fR
+Decrypt the container \fI\,VAULT\/\fR and write the plaintext to the destination path.
+.TP
+\fB\-o\fR, \fB\-\-output\fR \fI\,FILE\/\fR
+Specify the destination path for the output file. This option is mandatory when encrypting or decrypting.
+.TP
+\fB\-p\fR, \fB\-\-opslimit\fR \fI\,NUM\/\fR
+Set the Argon2id CPU operations limit to \fI\,NUM\/\fR. Higher values increase resistance to brute-force attacks but take longer to process. If not specified, a moderate default is used. The maximum allowed value during decryption is 32 to prevent denial-of-service.
+.TP
+\fB\-m\fR, \fB\-\-memlimit\fR \fI\,BYTES\/\fR
+Set the Argon2id memory limit in bytes. Higher values increase resistance to memory-tradeoff attacks. If not specified, a moderate default is used. The maximum allowed value during decryption is 4294967296 (4 GiB).
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display a usage message and exit.
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Display version information and exit.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Failure (e.g., incorrect password, file I/O error, invalid parameters, or container corruption).
+.SH EXAMPLES
+Encrypt a file named \fI\,data.txt\/\fR to a container named \fI\,data.gisp\/\fR:
+.PP
+.RS
+.nf
+gisp \-e data.txt \-o data.gisp
+.fi
+.RE
+.PP
+Decrypt a container named \fI\,data.gisp\/\fR to a file named \fI\,restored.txt\/\fR:
+.PP
+.RS
+.nf
+gisp \-d data.gisp \-o restored.txt
+.fi
+.RE
+.PP
+Encrypt a file with advanced Argon2id parameters (opslimit 16, memlimit 1 GiB):
+.PP
+.RS
+.nf
+gisp \-e data.txt \-o data.gisp \-p 16 \-m 1073741824
+.fi
+.RE
+.SH AUTHOR
+Written by Uladzislau Bolbas.
+.SH REPORTING BUGS
+Report bugs to <cmrtumilovic@gmail.com>.
+.br
+Full documentation at: <https://codeberg.org/artich0ke/gisp>
+.SH COPYRIGHT
+Copyright \(co 2026 Uladzislau Bolbas.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
+.br
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
