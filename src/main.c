@@ -28,6 +28,8 @@ parse_ull (const char *str, unsigned long long *out)
 {
   if (!str || *str == '\0')
     return -1;
+  if (*str == '-')
+    return -1;
   char *endptr;
   errno = 0;
   unsigned long long val = strtoull (str, &endptr, 10);
@@ -38,7 +40,7 @@ parse_ull (const char *str, unsigned long long *out)
 }
 
 static void
-print_usage (const char *prog)
+print_usage (void)
 {
   fprintf (stdout,
     "Usage: %s [OPTIONS]\n"
@@ -54,21 +56,29 @@ print_usage (const char *prog)
     "\n"
     "Report bugs to: <cmrtumilovic@gmail.com>\n"
     "Full documentation at: <https://github.com/b0lbas/gisp>\n",
-    prog);
+    PROGRAM_NAME);
+}
+
+static void
+print_version (void)
+{
+  fprintf (stdout, "%s v%d.0 (libsodium hardened)\n", PROGRAM_NAME, VAULT_VERSION);
+  fprintf (stdout, "Copyright (C) 2025 Uladzislau Bolbas\n");
+  fprintf (stdout, "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n");
+  fprintf (stdout, "This is free software: you are free to change and redistribute it.\n");
+  fprintf (stdout, "There is NO WARRANTY, to the extent permitted by law.\n");
 }
 
 int
 main (int argc, char *argv[])
 {
-  const char *prog = argv[0];
-
   if (sodium_init () == -1)
     {
-      fprintf (stderr, "%s: fatal: libsodium initialisation failed\n", prog);
+      fprintf (stderr, "%s: fatal: libsodium initialisation failed\n", PROGRAM_NAME);
       return 1;
     }
 
-  if (terminal_init_signals (prog) != 0)
+  if (terminal_init_signals () != 0)
     return 1;
 
   const char *mode     = NULL;
@@ -113,7 +123,7 @@ main (int argc, char *argv[])
             if (parse_ull (optarg, &v) != 0)
               {
                 fprintf (stderr, "%s: invalid opslimit value: '%s'\n",
-                         prog, optarg);
+                         PROGRAM_NAME, optarg);
                 return 1;
               }
             if (v < crypto_pwhash_opslimit_min ())
@@ -127,7 +137,7 @@ main (int argc, char *argv[])
             if (parse_ull (optarg, &v) != 0)
               {
                 fprintf (stderr, "%s: invalid memlimit value: '%s'\n",
-                         prog, optarg);
+                         PROGRAM_NAME, optarg);
                 return 1;
               }
             if (v < crypto_pwhash_memlimit_min ())
@@ -136,29 +146,38 @@ main (int argc, char *argv[])
           }
           break;
         case 'h':
-          print_usage (prog);
+          print_usage ();
           return 0;
         case 'v':
-          fprintf (stdout, "gisp v%d.0 (libsodium hardened)\n",
-                   VAULT_VERSION);
+          print_version ();
           return 0;
         default:
-          fprintf (stderr, "%s: try '--help' for usage information\n", prog);
+          fprintf (stderr, "%s: try '--help' for usage information\n", PROGRAM_NAME);
           return 1;
         }
     }
 
   if (optind < argc || !mode || !file_src || !file_dst)
     {
-      fprintf (stderr, "%s: error: missing or unexpected arguments\n", prog);
-      print_usage (prog);
+      fprintf (stderr, "%s: error: missing or unexpected arguments\n", PROGRAM_NAME);
+      print_usage ();
       return 1;
+    }
+
+  if (strcmp (mode, "-e") == 0)
+    {
+      if (opslimit > MAX_ALLOWED_OPSLIMIT || memlimit > MAX_ALLOWED_MEMLIMIT)
+        {
+          fprintf (stderr, "%s: error: provided limits exceed maximum allowed for encryption\n",
+                   PROGRAM_NAME);
+          return 1;
+        }
     }
 
   char *pass_buf = secure_malloc (MAX_PASS_LEN);
   if (!pass_buf)
     {
-      fprintf (stderr, "%s: fatal: secure memory allocation failed\n", prog);
+      fprintf (stderr, "%s: fatal: secure memory allocation failed\n", PROGRAM_NAME);
       return 1;
     }
 
@@ -168,17 +187,21 @@ main (int argc, char *argv[])
     {
       if (p_len >= 0)
         fprintf (stderr, "%s: error: password must be at least %d characters\n",
-                 prog, MIN_PASS_LEN);
+                 PROGRAM_NAME, MIN_PASS_LEN);
       secure_free (pass_buf);
       return 1;
     }
+
+  if (p_len == MAX_PASS_LEN - 1)
+    fprintf (stderr, "%s: warning: password truncated to %d characters\n",
+             PROGRAM_NAME, MAX_PASS_LEN - 1);
 
   if (strcmp (mode, "-e") == 0)
     {
       char *confirm_buf = secure_malloc (MAX_PASS_LEN);
       if (!confirm_buf)
         {
-          fprintf (stderr, "%s: fatal: secure memory allocation failed\n", prog);
+          fprintf (stderr, "%s: fatal: secure memory allocation failed\n", PROGRAM_NAME);
           secure_free (pass_buf);
           return 1;
         }
@@ -190,7 +213,7 @@ main (int argc, char *argv[])
       secure_free (confirm_buf);
       if (mismatch)
         {
-          fprintf (stderr, "%s: error: passwords do not match\n", prog);
+          fprintf (stderr, "%s: error: passwords do not match\n", PROGRAM_NAME);
           secure_free (pass_buf);
           return 1;
         }
@@ -198,10 +221,10 @@ main (int argc, char *argv[])
 
   int success = 0;
   if (strcmp (mode, "-e") == 0)
-    success = encrypt_file (prog, file_src, file_dst, pass_buf,
+    success = encrypt_file (PROGRAM_NAME, file_src, file_dst, pass_buf,
                             (size_t) p_len, opslimit, memlimit);
   else if (strcmp (mode, "-d") == 0)
-    success = decrypt_file (prog, file_src, file_dst, pass_buf,
+    success = decrypt_file (PROGRAM_NAME, file_src, file_dst, pass_buf,
                             (size_t) p_len);
 
   secure_free (pass_buf);
