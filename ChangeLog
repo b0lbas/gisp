@@ -10,8 +10,8 @@
 	gisp_set_limits.
 	* src/main.c: Add --passphrase-fd, --passphrase-file, --max-opslimit,
 	--max-memlimit, --max-filesize, --min-password-length and
-	--allow-weak-password.  Print the GNU "program (GNU package) version"
-	banner and the standard --help footer.  Set up gettext.
+	--allow-weak-password.  Print a "program version" banner and a
+	--help footer with the bug-report address.  Set up gettext.
 	* src/terminal.c (read_password_fd): New function for non-interactive
 	passphrase input.
 	* include/gettext.h: New i18n convenience header (NLS optional).

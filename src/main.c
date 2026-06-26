@@ -100,19 +100,18 @@ print_usage (void)
       "  -v, --version          Display version information and exit\n"
       "\n"),
     PROGRAM_NAME);
-  /* GNU programs end --help with where to report bugs and find help.  */
+  /* End --help with where to report bugs and find the project.  */
   fprintf (stdout,
     _("Report bugs to: <%s>\n"
-      "gisp home page: <https://savannah.nongnu.org/projects/gisp>\n"
-      "General help using GNU software: <https://www.gnu.org/gethelp/>\n"),
+      "gisp home page: <https://codeberg.org/artich0ke/gisp>\n"),
     PACKAGE_BUGREPORT);
 }
 
 static void
 print_version (void)
 {
-  /* GNU --version convention: "program (GNU package) version".  */
-  fprintf (stdout, "%s (GNU %s) %s\n", PROGRAM_NAME, PACKAGE, VERSION);
+  /* "program version" banner.  */
+  fprintf (stdout, "%s %s\n", PROGRAM_NAME, VERSION);
   fprintf (stdout, "Copyright (C) 2026 Uladzislau Bolbas\n");
   fprintf (stdout,
     _("License GPLv3+: GNU GPL version 3 or later"
