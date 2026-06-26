@@ -39,3 +39,11 @@ Notes:
 * `-close_fd_mask=2` silences the target's stderr while keeping libFuzzer's own
   reports.
 * These harnesses suit ClusterFuzzLite/OSS-Fuzz with no changes.
+
+---
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+Copying and distribution of this file, with or without modification, are
+permitted in any medium without royalty provided the copyright notice and
+this notice are preserved.  This file is offered as-is, without any warranty.

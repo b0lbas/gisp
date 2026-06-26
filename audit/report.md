@@ -82,3 +82,11 @@ per-file salt and stream header defeat reordering and splicing, truncation and
 trailing data are rejected, the output path resists symlink and permission
 attacks, and there is no wrong-password oracle. The implementation matches its
 documented format. The single observation above is cosmetic/robustness only.
+
+---
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+Copying and distribution of this file, with or without modification, are
+permitted in any medium without royalty provided the copyright notice and
+this notice are preserved.  This file is offered as-is, without any warranty.

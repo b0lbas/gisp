@@ -1,0 +1,18 @@
+gisp audit logs
+===============
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+The .log files in this directory (adversarial.log, layout.log) are captured
+transcripts produced by the audit scripts (adversarial.sh and the constants
+helper).  As mechanically generated output they do not carry their own
+copyright and license notices, so this README records them here, as
+recommended by the GNU/Savannah documentation on copyright notices
+(http://www.gnu.org/prep/maintain/html_node/Copyright-Notices.html).
+
+Copying and distribution of these files, with or without modification, are
+permitted in any medium without royalty provided the copyright notice and
+this notice are preserved.  They are offered as-is, without any warranty.
+
+The audit tooling itself (adversarial.sh, byteflip.c, constants.c) and the
+report (report.md) carry their own notices and state their licenses.

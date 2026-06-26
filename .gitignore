@@ -1,3 +1,11 @@
+# .gitignore for gisp.
+#
+# Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+#
+# Copying and distribution of this file, with or without modification, are
+# permitted in any medium without royalty provided the copyright notice and
+# this notice are preserved.  This file is offered as-is, without any warranty.
+
 # Build products
 *.o
 *.a
@@ -60,3 +68,9 @@ doc/*.toc doc/*.tp doc/*.vr
 .idea/
 .DS_Store
 *.tmp
+
+# Editor and autoconf backups
+*~
+
+# Local reference material (not part of the distribution)
+/htmls/

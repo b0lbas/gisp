@@ -69,3 +69,11 @@ git push --tags
   this.
 * Once accepted, GNU provides `gnupload` (in the gnulib/coreutils tooling) to
   upload signed tarballs to ftp.gnu.org; the manual steps above mirror it.
+
+---
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+Copying and distribution of this file, with or without modification, are
+permitted in any medium without royalty provided the copyright notice and
+this notice are preserved.  This file is offered as-is, without any warranty.

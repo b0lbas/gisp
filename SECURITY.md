@@ -74,3 +74,11 @@ gisp implements no cryptographic primitives of its own; all are provided by
 libsodium. The security-relevant code is the container framing and the parser,
 which are covered by the test suite, sanitizers, fuzzers, and the size-math
 verification under `proof/`.
+
+---
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+Copying and distribution of this file, with or without modification, are
+permitted in any medium without royalty provided the copyright notice and
+this notice are preserved.  This file is offered as-is, without any warranty.

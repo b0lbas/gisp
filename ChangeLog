@@ -50,3 +50,10 @@
 	terminal handling, and atomic output.
 	* tests/test_core.c: Add the functional and security test suite.
 	* gisp.1: Add the manual page.
+
+----------------------------------------------------------------------
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+Copying and distribution of this file, with or without modification, are
+permitted provided the copyright notice and this notice are preserved.

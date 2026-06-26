@@ -52,3 +52,11 @@ these answers; this file tracks current status. Status: **MET** / **PARTIAL** /
 - [ ] Set up a release signing (OpenPGP) key and sign tarballs (`doc/RELEASING.md`).
 - [ ] Enable Coverity Scan / a CI badge (`doc/coverity.md`).
 - [ ] (Higher tiers) two-person review for releases; OpenSSF Scorecard in CI.
+
+---
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+Copying and distribution of this file, with or without modification, are
+permitted in any medium without royalty provided the copyright notice and
+this notice are preserved.  This file is offered as-is, without any warranty.

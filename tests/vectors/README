@@ -1,0 +1,29 @@
+gisp test vectors
+=================
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+This directory holds known-answer test data for gisp: the binary container
+files (v1_fixed.gisp, v1_streamed.gisp, v1_truncated.gisp) together with the
+inputs used to produce them (plaintext, passphrase).  Because these are
+binary or trivial data files that cannot carry their own copyright and
+license notices, this README records them here, as recommended by the
+GNU/Savannah documentation on copyright notices
+(http://www.gnu.org/prep/maintain/html_node/Copyright-Notices.html).
+
+These files are part of gisp and are distributed under the same terms:
+
+  gisp is free software: you can redistribute it and/or modify it under the
+  terms of the GNU General Public License as published by the Free Software
+  Foundation, either version 3 of the License, or (at your option) any later
+  version.
+
+  gisp is distributed in the hope that it will be useful, but WITHOUT ANY
+  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+  FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+  details.
+
+  You should have received a copy of the GNU General Public License along
+  with gisp.  If not, see <https://www.gnu.org/licenses/>.
+
+The full license text is in the COPYING file at the top of the source tree.
