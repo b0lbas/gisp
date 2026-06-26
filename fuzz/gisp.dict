@@ -1,0 +1,3 @@
+# libFuzzer dictionary for the gisp container format.
+magic="GISP"
+version="\x01\x00"
