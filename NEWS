@@ -1,0 +1,47 @@
+gisp NEWS -- history of user-visible changes.
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+See the end of this file for license conditions.
+
+
+Version 1.0
+-----------
+
+First public release.
+
+* Authenticated file encryption using XChaCha20-Poly1305 (libsodium's
+  crypto_secretstream), with the full container header bound as additional
+  authenticated data on every chunk.
+* Password-based key derivation with Argon2id, with configurable --opslimit
+  and --memlimit and a random per-file salt.
+* Streamed processing in 64 KiB chunks; constant memory use up to 64 GiB.
+* Truncation detection via the FINAL stream tag.
+* Memory hardening: keys and passwords held in guarded, mlocked pages and
+  wiped after use.
+* Denial-of-service hardening: KDF parameters from untrusted containers are
+  bounds-checked and all size arithmetic is overflow-checked before use.
+* Atomic, durable output: temporary file (O_EXCL, mode 0600), fsync, rename,
+  and parent-directory fsync.
+* Signal-safe terminal handling that always restores terminal echo.
+* Filter mode: a path of "-" reads standard input or writes standard output,
+  so gisp can be used in pipelines.  Streamed containers store a sentinel
+  length and rely on the FINAL tag; fixed-length containers are unchanged and
+  the two forms interoperate.
+* Non-interactive passphrase input via --passphrase-fd and --passphrase-file.
+* Configurable limits: operator ceilings --max-opslimit, --max-memlimit and
+  --max-filesize, plus --min-password-length and --allow-weak-password.  Secure
+  defaults; a container header can never relax an operator ceiling.
+* Internationalization through GNU gettext (no translations shipped yet).
+* GNU Autotools build (./configure && make && make check) and a Texinfo
+  manual in addition to the manual page.
+
+
+----------------------------------------------------------------------
+Copyright information:
+
+Copyright (C) 2026 Uladzislau Bolbas <cmrtumilovic@gmail.com>
+
+   Permission is granted to copy, distribute and/or modify this document
+   under the terms of the GNU Free Documentation License, Version 1.3 or
+   any later version published by the Free Software Foundation; with no
+   Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.

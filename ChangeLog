@@ -1,0 +1,52 @@
+2026-06-25  Uladzislau Bolbas  <cmrtumilovic@gmail.com>
+
+	Add pipe support, configurable limits, i18n, and a GNU build system.
+
+	* src/crypto.c: Support "-" for standard input and output.  Write the
+	header first (no seek-back) so it works on a pipe; store a sentinel
+	length for streamed containers and prove end-of-stream with the FINAL
+	tag; enforce the size ceiling incrementally when streaming.  Replace
+	the fixed MAX_ALLOWED_* macros with operator-configurable ceilings via
+	gisp_set_limits.
+	* src/main.c: Add --passphrase-fd, --passphrase-file, --max-opslimit,
+	--max-memlimit, --max-filesize, --min-password-length and
+	--allow-weak-password.  Print the GNU "program (GNU package) version"
+	banner and the standard --help footer.  Set up gettext.
+	* src/terminal.c (read_password_fd): New function for non-interactive
+	passphrase input.
+	* include/gettext.h: New i18n convenience header (NLS optional).
+	* include/gisp.h: Add PAYLOAD_LEN_UNKNOWN, package-identity fallbacks,
+	and the new prototypes.
+	* configure.ac, Makefile.am, src/Makefile.am, tests/Makefile.am,
+	doc/Makefile.am, po/, autogen.sh: New GNU Autotools build with
+	./configure, make check, make dist, and gettext support.
+	* doc/gisp.texi, doc/fdl.texi: New Texinfo manual including the
+	container format specification.
+	* gisp.1, README.md, NEWS: Document the new options and pipe usage.
+
+	Prepare the 1.0 release for GNU Savannah (nongnu) hosting.
+
+	* LICENSE: Rename to COPYING, following GNU convention.
+	* AUTHORS, NEWS, ChangeLog, INSTALL: New standard distribution files.
+	* .SRCINFO: Remove; it was an unrelated AUR packaging artifact.
+	* .gitignore: Drop the overly broad *.txt and *.gisp rules; ignore
+	release tarballs instead.
+	* README.md, gisp.1, src/main.c: Update the project home page from
+	Codeberg to the Savannah project page.
+	* Makefile: Make CC, CFLAGS, and LDLIBS overridable and stop forcing
+	-Werror on installs, per the GNU coding standards.  Add a "dist"
+	target to build a release tarball.
+	* Makefile, tests/Makefile: Add copyright and license notices.
+	* src/main.c, src/common.c, src/crypto.c, src/terminal.c: Document the
+	non-obvious security decisions with explanatory comments.
+
+2026-06-17  Uladzislau Bolbas  <cmrtumilovic@gmail.com>
+
+	Initial development.
+
+	* src/main.c, src/common.c, src/crypto.c, src/terminal.c, include/gisp.h:
+	Implement the encryption utility: XChaCha20-Poly1305 authenticated
+	encryption, Argon2id key derivation, memory hardening, signal-safe
+	terminal handling, and atomic output.
+	* tests/test_core.c: Add the functional and security test suite.
+	* gisp.1: Add the manual page.

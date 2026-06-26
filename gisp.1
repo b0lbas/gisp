@@ -7,6 +7,14 @@ gisp \- encrypt or decrypt files using XChaCha20-Poly1305 and Argon2id
 .SH DESCRIPTION
 .B gisp
 encrypts and decrypts files using the XChaCha20-Poly1305 authenticated encryption algorithm and the Argon2id key derivation function. Memory containing sensitive cryptographic material is locked to prevent swapping to disk and wiped immediately after use. File write operations use temporary files and atomic renaming to prevent data corruption.
+.PP
+A path of
+.B \-
+selects standard input or standard output, allowing
+.B gisp
+to be used as a filter in a pipeline. See
+.B PIPES AND STREAMS
+below.
 .SH OPTIONS
 .TP
 \fB\-e\fR, \fB\-\-encrypt\fR \fI\,FILE\/\fR
@@ -23,6 +31,27 @@ Set the Argon2id CPU operations limit to \fI\,NUM\/\fR. Higher values increase r
 .TP
 \fB\-m\fR, \fB\-\-memlimit\fR \fI\,BYTES\/\fR
 Set the Argon2id memory limit in bytes. Higher values increase resistance to memory-tradeoff attacks. If not specified, a moderate default is used. The maximum allowed value during decryption is 4294967296 (4 GiB).
+.TP
+\fB\-\-passphrase\-fd\fR \fI\,N\/\fR
+Read the passphrase from file descriptor \fI\,N\/\fR instead of the terminal. Intended for non-interactive use. The descriptor must not be 0 when data is also read from standard input.
+.TP
+\fB\-\-passphrase\-file\fR \fI\,FILE\/\fR
+Read the passphrase from \fI\,FILE\/\fR. Mutually exclusive with \fB\-\-passphrase\-fd\fR.
+.TP
+\fB\-\-max\-opslimit\fR \fI\,NUM\/\fR
+Operator ceiling: refuse to process a container whose Argon2id operations limit exceeds \fI\,NUM\/\fR. A value in a container header can never relax this ceiling.
+.TP
+\fB\-\-max\-memlimit\fR \fI\,BYTES\/\fR
+Operator ceiling on the Argon2id memory limit.
+.TP
+\fB\-\-max\-filesize\fR \fI\,BYTES\/\fR
+Operator ceiling on the plaintext size.
+.TP
+\fB\-\-min\-password\-length\fR \fI\,N\/\fR
+Require a passphrase of at least \fI\,N\/\fR characters. The default is 12. Raising it is always allowed.
+.TP
+\fB\-\-allow\-weak\-password\fR
+Permit a \fB\-\-min\-password\-length\fR below the recommended default. Required to weaken the minimum.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Display a usage message and exit.
@@ -60,12 +89,29 @@ Encrypt a file with advanced Argon2id parameters (opslimit 16, memlimit 1 GiB):
 gisp \-e data.txt \-o data.gisp \-p 16 \-m 1073741824
 .fi
 .RE
+.SH PIPES AND STREAMS
+When either path is \fB\-\fR,
+.B gisp
+reads from standard input or writes to standard output and behaves as a
+filter. Streaming changes two non-cryptographic properties of the named-file
+mode: standard output cannot be created with restrictive 0600 permissions
+(the redirection target obeys your umask), and output is no longer atomic, so
+a consumer may receive already-authenticated chunks before a truncated tail is
+detected. Treat a non-zero exit status as an instruction to discard the
+output. The cryptographic guarantees are identical in both modes.
+.PP
+.RS
+.nf
+tar c dir | gisp \-e \- \-o \- \-\-passphrase\-fd 3 3<key > dir.gisp
+gisp \-d \- \-o \- \-\-passphrase\-fd 3 3<key < dir.gisp | tar x
+.fi
+.RE
 .SH AUTHOR
 Written by Uladzislau Bolbas.
 .SH REPORTING BUGS
 Report bugs to <cmrtumilovic@gmail.com>.
 .br
-Full documentation at: <https://codeberg.org/artich0ke/gisp>
+Full documentation at: <https://savannah.nongnu.org/projects/gisp>
 .SH COPYRIGHT
 Copyright \(co 2026 Uladzislau Bolbas.
 License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.

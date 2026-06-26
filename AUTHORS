@@ -1,0 +1,6 @@
+Authors of gisp.
+
+Uladzislau Bolbas <cmrtumilovic@gmail.com>
+        Original author and maintainer.  Design and implementation of the
+        container format, cryptographic core, terminal/signal handling, and
+        test suite.
