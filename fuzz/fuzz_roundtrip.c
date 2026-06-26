@@ -13,6 +13,10 @@
        src/common.c src/crypto.c src/terminal.c fuzz/fuzz_roundtrip.c \
        -o fuzz_roundtrip -lsodium  */
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE            /* for mkdtemp */
+#endif
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,15 +27,42 @@
 
 #define RT_PASS "fuzz-round-trip-passphrase"
 
-static const char *IN  = "/dev/shm/gisp_rt_in";
-static const char *CT  = "/dev/shm/gisp_rt_ct";
-static const char *OUT = "/dev/shm/gisp_rt_out";
+/* Working files live in a private 0700 directory created at startup rather than
+   at a fixed name in a world-writable place like /dev/shm, which would invite a
+   symlink race (CWE-377 / SonarCloud S5443).  */
+static char g_dir[64];
+static char IN[128];
+static char CT[128];
+static char OUT[128];
+
+static int
+make_workdir (void)
+{
+  /* Prefer tmpfs for speed, then $TMPDIR, then /tmp.  */
+  const char *bases[] = { "/dev/shm", getenv ("TMPDIR"), "/tmp" };
+  for (size_t i = 0; i < sizeof bases / sizeof bases[0]; i++)
+    {
+      if (!bases[i] || !bases[i][0])
+        continue;
+      snprintf (g_dir, sizeof g_dir, "%s/gisprt.XXXXXX", bases[i]);
+      if (mkdtemp (g_dir))
+        return 0;
+    }
+  return -1;
+}
 
 int
 LLVMFuzzerInitialize (int *argc, char ***argv)
 {
   (void) argc; (void) argv;
-  return sodium_init () < 0 ? -1 : 0;
+  if (sodium_init () < 0)
+    return -1;
+  if (make_workdir () != 0)
+    return -1;
+  snprintf (IN,  sizeof IN,  "%s/in",  g_dir);
+  snprintf (CT,  sizeof CT,  "%s/ct",  g_dir);
+  snprintf (OUT, sizeof OUT, "%s/out", g_dir);
+  return 0;
 }
 
 static void

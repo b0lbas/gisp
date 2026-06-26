@@ -26,14 +26,26 @@ main (int argc, char **argv)
   FILE *f = fopen (argv[1], "r+b");
   if (!f)
     return 1;
+
   long off = atol (argv[2]);
+  int c;
+  int rc = 1;
+
+  /* Every error path funnels through the single close below, so the stream is
+     never leaked, and a write error that only surfaces at fclose is reported.  */
   if (fseek (f, off, SEEK_SET) != 0)
-    return 1;
-  int c = fgetc (f);
+    goto done;
+  c = fgetc (f);
   if (c == EOF)
-    return 1;
-  fseek (f, off, SEEK_SET);
-  fputc (c ^ 0xFF, f);
-  fclose (f);
-  return 0;
+    goto done;
+  if (fseek (f, off, SEEK_SET) != 0)
+    goto done;
+  if (fputc (c ^ 0xFF, f) == EOF)
+    goto done;
+  rc = 0;
+
+done:
+  if (fclose (f) != 0)
+    rc = 1;
+  return rc;
 }
