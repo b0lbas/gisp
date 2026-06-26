@@ -40,7 +40,7 @@
 # define PACKAGE "gisp"
 #endif
 #ifndef VERSION
-# define VERSION "1.0"
+# define VERSION "1.1"
 #endif
 #ifndef PACKAGE_BUGREPORT
 # define PACKAGE_BUGREPORT "cmrtumilovic@gmail.com"

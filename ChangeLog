@@ -1,3 +1,16 @@
+2026-06-26  Uladzislau Bolbas  <cmrtumilovic@gmail.com>
+
+	Release version 1.1.
+
+	* configure.ac, include/gisp.h, gisp.1: Bump the version to 1.1.
+	* NEWS: Add the 1.1 entry and move the new features out of the 1.0
+	section, which now lists only what the first release contained.
+	* All files: Add copyright and license notices in the form recommended
+	by the GNU "GPL HowTo"; license the Texinfo manual under the GNU FDL.
+	* Point the home-page and bug URLs at Codeberg and stop presenting gisp
+	as a GNU package (--version prints "gisp 1.1"; po/Makevars PACKAGE_GNU
+	= no).
+
 2026-06-25  Uladzislau Bolbas  <cmrtumilovic@gmail.com>
 
 	Add pipe support, configurable limits, i18n, and a GNU build system.

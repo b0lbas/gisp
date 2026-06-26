@@ -14,7 +14,7 @@ these answers; this file tracks current status. Status: **MET** / **PARTIAL** /
 
 ## Change control
 - **Public version-controlled source** — MET (Codeberg; Savannah pending).
-- **Unique version numbering / release notes** — MET (`NEWS`, semantic 1.0).
+- **Unique version numbering / release notes** — MET (`NEWS`, semantic 1.1).
 
 ## Reporting
 - **Bug/vulnerability reporting process** — MET (`SECURITY.md`, bug address in

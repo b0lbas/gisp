@@ -26,7 +26,7 @@ tar czf gisp-cov.tgz cov-int
 curl --form token=$COVERITY_TOKEN \
      --form email=cmrtumilovic@gmail.com \
      --form file=@gisp-cov.tgz \
-     --form version="1.0" \
+     --form version="1.1" \
      --form description="gisp scan" \
      https://scan.coverity.com/builds?project=<your-project>
 ```
