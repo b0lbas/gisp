@@ -1,0 +1,5 @@
+# List of source files containing translatable strings.
+src/main.c
+src/common.c
+src/crypto.c
+src/terminal.c
