@@ -9,7 +9,7 @@ dnl any later version.  There is NO WARRANTY, to the extent permitted by law.
 
 AC_PREREQ([2.69])
 AC_INIT([gisp], [1.1], [cmrtumilovic@gmail.com], [gisp],
-        [https://codeberg.org/artich0ke/gisp])
+        [https://savannah.nongnu.org/projects/gisp])
 AC_CONFIG_SRCDIR([src/crypto.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])

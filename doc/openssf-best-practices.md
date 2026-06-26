@@ -13,7 +13,7 @@ these answers; this file tracks current status. Status: **MET** / **PARTIAL** /
 - **English for communication** — MET.
 
 ## Change control
-- **Public version-controlled source** — MET (Codeberg; Savannah pending).
+- **Public version-controlled source** — MET (GNU Savannah).
 - **Unique version numbering / release notes** — MET (`NEWS`, semantic 1.1).
 
 ## Reporting

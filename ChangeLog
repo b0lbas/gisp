@@ -1,5 +1,16 @@
 2026-06-26  Uladzislau Bolbas  <cmrtumilovic@gmail.com>
 
+	Move project hosting from Codeberg to GNU Savannah.
+
+	* README.md, configure.ac, gisp.1, src/main.c, doc/gisp.texi: Point
+	the home-page URL at the GNU Savannah project page
+	(https://savannah.nongnu.org/projects/gisp) instead of Codeberg.
+	* NEWS: Announce the move to GNU Savannah hosting.
+	* doc/openssf-best-practices.md, doc/coverity.md: Update the
+	repository references to Savannah.
+
+2026-06-26  Uladzislau Bolbas  <cmrtumilovic@gmail.com>
+
 	Release version 1.1.
 
 	* configure.ac, include/gisp.h, gisp.1: Bump the version to 1.1.

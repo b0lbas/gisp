@@ -67,7 +67,7 @@ model, the security notes, and the container format specification.
 
 **Uladzislau Bolbas** — [cmrtumilovic@gmail.com](mailto:cmrtumilovic@gmail.com)
 
-Project Link: [https://codeberg.org/artich0ke/gisp](https://codeberg.org/artich0ke/gisp)
+Project Link: [https://savannah.nongnu.org/projects/gisp](https://savannah.nongnu.org/projects/gisp)
 
 ## License
 

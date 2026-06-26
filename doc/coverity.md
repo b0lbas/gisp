@@ -8,7 +8,7 @@ repository.
 ## One-time
 
 1. Register the project at <https://scan.coverity.com/> (sign in, "Add
-   project", point it at the Codeberg/Savannah repository).
+   project", point it at the Savannah repository).
 2. Download the **Coverity Build Tool** (`cov-analysis`) and note your
    **project token**.
 

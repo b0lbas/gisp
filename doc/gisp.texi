@@ -270,7 +270,7 @@ forms are otherwise identical and interchangeable.
 @chapter Reporting bugs
 
 Report bugs to @email{cmrtumilovic@@gmail.com}.  The project home page is
-@url{https://codeberg.org/artich0ke/gisp}.
+@url{https://savannah.nongnu.org/projects/gisp}.
 
 @node GNU Free Documentation License
 @appendix GNU Free Documentation License

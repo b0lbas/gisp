@@ -103,7 +103,7 @@ print_usage (void)
   /* End --help with where to report bugs and find the project.  */
   fprintf (stdout,
     _("Report bugs to: <%s>\n"
-      "gisp home page: <https://codeberg.org/artich0ke/gisp>\n"),
+      "gisp home page: <https://savannah.nongnu.org/projects/gisp>\n"),
     PACKAGE_BUGREPORT);
 }
 

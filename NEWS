@@ -29,9 +29,9 @@ unchanged and interoperates with 1.0.
 * Testing and audit: known-answer test vectors, fault injection, command-line
   integration tests, libFuzzer harnesses, and an adversarial audit with a
   written report.
-* The project is now hosted on Codeberg
-  (https://codeberg.org/artich0ke/gisp).  gisp is free software but is not a
-  GNU package.
+* The project is now hosted on GNU Savannah
+  (https://savannah.nongnu.org/projects/gisp).  gisp is free software but is
+  not a GNU package.
 
 The command-line interface is backward compatible: -e/--encrypt, -d/--decrypt,
 -o/--output, -p/--opslimit and -m/--memlimit behave as in 1.0.
