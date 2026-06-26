@@ -18,12 +18,36 @@
 #ifndef GISP_H
 #define GISP_H
 
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sodium.h>
+
+#include "gettext.h"
+
+/* Package identity.  Under Autotools these come from config.h; the fallbacks
+   keep the plain Makefile build (and editors) working.  */
+#ifndef PACKAGE
+# define PACKAGE "gisp"
+#endif
+#ifndef VERSION
+# define VERSION "1.0"
+#endif
+#ifndef PACKAGE_BUGREPORT
+# define PACKAGE_BUGREPORT "cmrtumilovic@gmail.com"
+#endif
+#ifndef LOCALEDIR
+# define LOCALEDIR "/usr/local/share/locale"
+#endif
 
 /* ---------------------------------------------------------------------------
    Cryptographic constants and layout macros.
@@ -43,6 +67,12 @@
 
 #define VAULT_MAGIC   "GISP"
 #define VAULT_VERSION 1
+
+/* Stored in the payload-length field of a streamed container.  When the input
+   is a pipe the plaintext length is unknown at the time the header must be
+   written, so this sentinel is used and end-of-stream is proven by the
+   secretstream FINAL tag rather than by a length comparison.  */
+#define PAYLOAD_LEN_UNKNOWN UINT64_MAX
 
 #define PROGRAM_NAME  "gisp"
 
@@ -74,6 +104,12 @@ uint64_t deserialize_uint64 (const unsigned char *buf);
 int u64_add_overflow (uint64_t a, uint64_t b, uint64_t *result);
 int u64_mul_overflow (uint64_t a, uint64_t b, uint64_t *result);
 
+/* Compute the exact on-disk container size for PAYLOAD_LEN bytes of plaintext
+   (header + per-chunk authentication tags).  Returns non-zero on overflow.
+   The single source of truth for the decrypt-side size check, verified in
+   proof/overflow_proof.c.  */
+int container_size_for_payload (uint64_t payload_len, uint64_t *result);
+
 int check_same_file (int fd1, const char *path2);
 int safely_open_input (const char *prog, const char *path, int64_t *out_size);
 int fsync_dir (const char *path);
@@ -84,6 +120,11 @@ int fsync_dir (const char *path);
 
 int     terminal_init_signals (void);
 ssize_t get_password_secure (const char *prompt, char *buf, size_t max_len);
+
+/* Read a single line of passphrase from an already-open descriptor (a pipe,
+   a regular file, or a user-supplied fd).  No echo handling: the source is
+   not assumed to be a terminal.  Used for non-interactive pipelines.  */
+ssize_t read_password_fd (int fd, char *buf, size_t max_len);
 
 /* ---------------------------------------------------------------------------
    Cryptographic core (src/crypto.c).
@@ -96,5 +137,14 @@ int encrypt_file (const char *prog, const char *in_path,
 int decrypt_file (const char *prog, const char *in_path,
                   const char *out_path, const char *password,
                   size_t pass_len);
+
+/* Override the operator-side resource ceilings used to reject hostile or
+   over-costly containers.  These protect the machine doing the work, so the
+   operator may raise or lower them; a value carried in a container header can
+   never relax them.  Defaults match the MAX_ALLOWED_* / MAX_VAULT_FILE_SIZE
+   macros.  Passing 0 for any argument leaves that ceiling unchanged.  */
+void gisp_set_limits (unsigned long long max_opslimit,
+                      unsigned long long max_memlimit,
+                      uint64_t max_filesize);
 
 #endif /* GISP_H */

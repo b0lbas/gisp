@@ -15,6 +15,10 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -24,6 +28,9 @@
 
 #include "gisp.h"
 
+/* Allocate memory for secrets.  sodium_malloc surrounds the region with
+   guard pages, locks it out of swap, and zeroes it on free, so keys and
+   passwords cannot leak to disk or linger after use.  */
 void *
 secure_malloc (size_t size)
 {
@@ -33,12 +40,14 @@ secure_malloc (size_t size)
   void *ptr = sodium_malloc (size);
   if (!ptr)
     {
+      /* Warn only once: a failing allocator would otherwise flood stderr.  */
       static int warned = 0;
       if (!warned)
         {
           warned = 1;
-          fprintf (stderr, "gisp: warning: secure memory allocation failed"
-                           " (sodium_malloc returned NULL)\n");
+          fprintf (stderr, "%s: %s\n", PACKAGE,
+                   _("warning: secure memory allocation failed"
+                     " (sodium_malloc returned NULL)"));
         }
     }
   return ptr;
@@ -51,6 +60,9 @@ secure_free (void *ptr)
     sodium_free (ptr);
 }
 
+/* read() and write() may transfer fewer bytes than asked on pipes, signals,
+   or large requests; these loop until the whole buffer is handled so callers
+   can treat a short count as a real error.  */
 ssize_t
 read_all (int fd, unsigned char *buf, size_t size)
 {
@@ -81,6 +93,10 @@ write_all (int fd, const unsigned char *buf, size_t size)
   return (ssize_t) total;
 }
 
+/* The container format is fixed little-endian so a file written on one
+   machine decrypts byte-for-byte on any other, regardless of host endianness.
+   These helpers do the conversion explicitly instead of memcpy'ing the
+   native layout.  */
 void
 serialize_uint16 (unsigned char *buf, uint16_t val)
 {
@@ -120,6 +136,9 @@ deserialize_uint64 (const unsigned char *buf)
        | ((uint64_t) buf[7] << 56);
 }
 
+/* Checked arithmetic used when validating sizes taken from an untrusted
+   header.  An overflow there could otherwise wrap to a small number and
+   pass a length check it should have failed.  */
 int
 u64_add_overflow (uint64_t a, uint64_t b, uint64_t *result)
 {
@@ -146,6 +165,30 @@ u64_mul_overflow (uint64_t a, uint64_t b, uint64_t *result)
 #endif
 }
 
+/* Decide whether an open fd and a path are the same file by comparing
+   device and inode, not the path strings.  String comparison would miss
+   symlinks, hard links, "./foo" vs "foo", and absolute vs relative forms,
+   any of which would let us overwrite the input while still reading it.  */
+int
+container_size_for_payload (uint64_t payload_len, uint64_t *result)
+{
+  /* Overflow-safe ceiling division: computing (payload_len + CHUNK_SIZE - 1)
+     would itself wrap for a payload_len within CHUNK_SIZE of UINT64_MAX and
+     hide the overflow, so divide first.  An empty payload still yields one
+     final chunk.  */
+  uint64_t chunks = (payload_len == 0)
+                    ? 1
+                    : (payload_len / CHUNK_SIZE
+                       + (payload_len % CHUNK_SIZE != 0));
+  uint64_t total;
+  if (u64_mul_overflow (chunks, (uint64_t) CRYPTO_ABYTES, &total)
+      || u64_add_overflow (total, (uint64_t) HEADER_TOTAL_SIZE, &total)
+      || u64_add_overflow (total, payload_len, &total))
+    return 1;
+  *result = total;
+  return 0;
+}
+
 int
 check_same_file (int fd1, const char *path2)
 {
@@ -163,14 +206,14 @@ safely_open_input (const char *prog, const char *path, int64_t *out_size)
   int fd = open (path, O_RDONLY);
   if (fd == -1)
     {
-      fprintf (stderr, "%s: %s: cannot open file: %s\n",
+      fprintf (stderr, _("%s: %s: cannot open file: %s\n"),
                prog, path, strerror (errno));
       return -1;
     }
   struct stat st;
   if (fstat (fd, &st) != 0 || st.st_size < 0)
     {
-      fprintf (stderr, "%s: %s: cannot stat file: %s\n",
+      fprintf (stderr, _("%s: %s: cannot stat file: %s\n"),
                prog, path, strerror (errno));
       close (fd);
       return -1;
@@ -179,6 +222,9 @@ safely_open_input (const char *prog, const char *path, int64_t *out_size)
   return fd;
 }
 
+/* fsync the directory that contains PATH.  A rename is only durable once the
+   directory entry itself is flushed; without this a crash just after rename
+   could leave the new name missing even though the data was synced.  */
 int
 fsync_dir (const char *path)
 {
@@ -199,8 +245,12 @@ fsync_dir (const char *path)
       /* Current directory.  */
       free (dir_path);
       dir_path = strdup (".");
+      if (!dir_path)
+        return -1;
     }
 
+  /* O_DIRECTORY guarantees we never fsync something that merely shares the
+     directory's name (e.g. a symlink swapped in underneath us).  */
   int fd = open (dir_path, O_RDONLY | O_DIRECTORY);
   if (fd == -1)
     {
