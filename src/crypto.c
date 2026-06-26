@@ -49,11 +49,159 @@ gisp_set_limits (unsigned long long max_opslimit,
     g_max_filesize = max_filesize;
 }
 
-/* A path of "-" selects the standard stream instead of a named file.  */
+/* Whether the Argon2id parameters read from a container header are usable:
+   inside libsodium's own accepted range and within the operator ceilings.
+   They are attacker-controlled and feed a key derivation and its allocation,
+   so they must pass this before crypto_pwhash is ever called on them.  */
 static int
-is_stdio (const char *path)
+kdf_params_in_range (unsigned long long opslimit, unsigned long long memlimit)
 {
-  return path[0] == '-' && path[1] == '\0';
+  return opslimit >= crypto_pwhash_opslimit_min ()
+         && opslimit <= crypto_pwhash_opslimit_max ()
+         && opslimit <= g_max_opslimit
+         && memlimit >= crypto_pwhash_memlimit_min ()
+         && memlimit <= crypto_pwhash_memlimit_max ()
+         && memlimit <= g_max_memlimit;
+}
+
+/* Open the destination named by OUT_PATH.  For "-" this is stdout, written
+   through as a plain stream (*OUT_IS_FILE stays 0).  For a real path it creates
+   "<OUT_PATH>.tmp" with O_EXCL and mode 0600 -- returning that name in
+   *TMP_PATH and setting *OUT_IS_FILE -- so finalize_output can rename it into
+   place atomically.  O_EXCL makes creation fail rather than follow a symlink
+   planted at the temp path; 0600 keeps the ciphertext private from creation.
+   When the input is a real file (IN_IS_PIPE 0) the temp path is first checked
+   against IN_FD so we never write the container over the plaintext we read.
+   Returns the fd, or -1 (with a diagnostic) on failure.  */
+static int
+open_output (const char *prog, const char *out_path, int in_fd, int in_is_pipe,
+             char **tmp_path, int *out_is_file)
+{
+  if (is_stdio (out_path))
+    {
+      *out_is_file = 0;
+      return STDOUT_FILENO;
+    }
+
+  *out_is_file = 1;
+
+  if (!in_is_pipe && check_same_file (in_fd, out_path))
+    {
+      fprintf (stderr,
+               _("%s: error: input and output paths refer to the same file\n"),
+               prog);
+      return -1;
+    }
+
+  if (asprintf (tmp_path, "%s.tmp", out_path) < 0)
+    {
+      *tmp_path = NULL;
+      return -1;
+    }
+
+  int out_fd = open (*tmp_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  if (out_fd == -1)
+    fprintf (stderr, _("%s: %s: cannot create temporary output file: %s\n"),
+             prog, *tmp_path, strerror (errno));
+  return out_fd;
+}
+
+/* Close out the destination opened by open_output and report the final result.
+   For a real file on success (RES non-zero): fsync the data, close, rename the
+   temp into place (atomic, so a reader sees old or complete-new, never partial)
+   and fsync the parent directory so the new name itself is durable.  On failure
+   the half-written temp is unlinked.  For stdout nothing is synced or renamed
+   -- that is the Unix filter contract.  Frees TMP_PATH.  Returns the possibly
+   downgraded RES.  */
+static int
+finalize_output (const char *prog, int res, int out_fd, int out_is_file,
+                 char *tmp_path, const char *out_path)
+{
+  if (out_fd != -1 && out_is_file)
+    {
+      if (res && fsync (out_fd) != 0)
+        {
+          fprintf (stderr, _("%s: error: fsync failed: %s\n"),
+                   prog, strerror (errno));
+          res = 0;
+        }
+      close (out_fd);
+    }
+
+  if (out_is_file && res && tmp_path)
+    {
+      if (rename (tmp_path, out_path) != 0)
+        {
+          fprintf (stderr, _("%s: error: cannot rename temporary file: %s\n"),
+                   prog, strerror (errno));
+          unlink (tmp_path);
+          res = 0;
+        }
+      else if (fsync_dir (out_path) != 0)
+        {
+          fprintf (stderr, _("%s: warning: failed to sync parent directory: %s\n"),
+                   prog, strerror (errno));
+        }
+    }
+  else if (out_is_file && tmp_path)
+    {
+      unlink (tmp_path);
+    }
+
+  free (tmp_path);
+  return res;
+}
+
+/* write_all plus a uniform diagnostic.  Returns 0, or -1 on a short write.  */
+static int
+write_out (int out_fd, const unsigned char *buf, size_t len, const char *prog)
+{
+  if (write_all (out_fd, buf, len) != (ssize_t) len)
+    {
+      fprintf (stderr, _("%s: error: write failed: %s\n"),
+               prog, strerror (errno));
+      return -1;
+    }
+  return 0;
+}
+
+/* The two wrappers below bind the full metadata header as additional
+   authenticated data on every chunk, so any tampering with the version, KDF
+   parameters, or stored length makes authentication fail.  Keeping the AAD (and
+   its length) here means the per-chunk loops cannot get it wrong or out of
+   sync.  */
+
+/* Encrypt one PLAIN_LEN-byte chunk under TAG into CIPHER, reporting the
+   ciphertext length in *CIPHER_LEN.  Returns 0, or -1 if the push fails.  */
+static int
+push_chunk (crypto_secretstream_xchacha20poly1305_state *state,
+            const unsigned char *plain, size_t plain_len, unsigned char tag,
+            unsigned char *cipher, unsigned long long *cipher_len,
+            const unsigned char *header)
+{
+  return crypto_secretstream_xchacha20poly1305_push (
+           state, cipher, cipher_len, plain, plain_len,
+           header, METADATA_BASE_SIZE, tag) == 0 ? 0 : -1;
+}
+
+/* Decrypt and authenticate one CIPHER_LEN-byte chunk into PLAIN, reporting the
+   plaintext length in *PLAIN_LEN and the stream tag in *TAG.  Returns 0, or -1
+   (with a diagnostic) when authentication fails.  */
+static int
+pull_chunk (crypto_secretstream_xchacha20poly1305_state *state,
+            const unsigned char *cipher, size_t cipher_len,
+            unsigned char *plain, unsigned long long *plain_len,
+            unsigned char *tag, const unsigned char *header, const char *prog)
+{
+  if (crypto_secretstream_xchacha20poly1305_pull (
+        state, plain, plain_len, tag, cipher, cipher_len,
+        header, METADATA_BASE_SIZE) != 0)
+    {
+      fprintf (stderr, _("%s: error: authentication failed"
+                         " (wrong password or corrupted file)\n"), prog);
+      return -1;
+    }
+  return 0;
 }
 
 int
@@ -101,45 +249,13 @@ encrypt_file (const char *prog, const char *in_path, const char *out_path,
         return 0;
     }
 
-  /* Open the output.  Only a named file gets the atomic temp-file treatment;
-     stdout is written through as a stream.  */
-  if (is_stdio (out_path))
-    {
-      out_fd = STDOUT_FILENO;
-    }
-  else
-    {
-      out_is_file = 1;
-
-      /* Refuse to encrypt onto the source: we read it incrementally, so
-         writing the container over it would corrupt the plaintext.  Only
-         meaningful when the input is a real file.  */
-      if (!in_is_pipe && check_same_file (in_fd, out_path))
-        {
-          fprintf (stderr,
-                   _("%s: error: input and output paths refer to the same file\n"),
-                   prog);
-          goto cleanup;
-        }
-
-      if (asprintf (&tmp_path, "%s.tmp", out_path) < 0)
-        {
-          tmp_path = NULL;
-          goto cleanup;
-        }
-
-      /* Write to a temporary file first, then rename into place, so a crash
-         or wrong password can never leave a half-written container at the
-         real path.  O_EXCL makes creation fail rather than follow a symlink
-         planted at tmp_path; 0600 keeps the ciphertext private from creation.  */
-      out_fd = open (tmp_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
-      if (out_fd == -1)
-        {
-          fprintf (stderr, _("%s: %s: cannot create temporary output file: %s\n"),
-                   prog, tmp_path, strerror (errno));
-          goto cleanup;
-        }
-    }
+  /* Refuse to encrypt onto the source: we read it incrementally, so writing
+     the container over it would corrupt the plaintext.  open_output handles the
+     atomic temp-file path for a named file and writes stdout through directly.  */
+  out_fd = open_output (prog, out_path, in_fd, in_is_pipe,
+                        &tmp_path, &out_is_file);
+  if (out_fd == -1)
+    goto cleanup;
 
   if (!in_is_pipe && (uint64_t) file_size > g_max_filesize)
     {
@@ -192,14 +308,9 @@ encrypt_file (const char *prog, const char *in_path, const char *out_path,
 
   /* Write the header first.  This produces exactly the same bytes as seeking
      back would, but needs no seek, so it works on a pipe as well as a file.  */
-  if (write_all (out_fd, header_base, METADATA_BASE_SIZE)
-      != (ssize_t) METADATA_BASE_SIZE
-      || write_all (out_fd, stream_hdr, STREAM_HDR_SIZE)
-      != (ssize_t) STREAM_HDR_SIZE)
-    {
-      fprintf (stderr, _("%s: error: write failed: %s\n"), prog, strerror (errno));
-      goto cleanup;
-    }
+  if (write_out (out_fd, header_base, METADATA_BASE_SIZE, prog) != 0
+      || write_out (out_fd, stream_hdr, STREAM_HDR_SIZE, prog) != 0)
+    goto cleanup;
 
   if (!in_is_pipe)
     {
@@ -220,25 +331,15 @@ encrypt_file (const char *prog, const char *in_path, const char *out_path,
             }
 
           /* Tag the last chunk FINAL so decryption can prove the stream was
-             not truncated; bind the full header as AAD on every chunk so any
-             tampering with the metadata makes authentication fail.  */
+             not truncated.  */
           unsigned char tag = (remaining == (int64_t) to_read)
                               ? crypto_secretstream_xchacha20poly1305_TAG_FINAL
                               : 0;
           unsigned long long out_len;
-          if (crypto_secretstream_xchacha20poly1305_push (
-                  &state, chunk_out, &out_len,
-                  chunk_in, to_read,
-                  header_base, METADATA_BASE_SIZE, tag) != 0)
+          if (push_chunk (&state, chunk_in, to_read, tag,
+                          chunk_out, &out_len, header_base) != 0
+              || write_out (out_fd, chunk_out, (size_t) out_len, prog) != 0)
             goto cleanup;
-
-          if (write_all (out_fd, chunk_out, (size_t) out_len)
-              != (ssize_t) out_len)
-            {
-              fprintf (stderr, _("%s: error: write failed: %s\n"),
-                       prog, strerror (errno));
-              goto cleanup;
-            }
 
           remaining -= (int64_t) to_read;
         }
@@ -276,19 +377,10 @@ encrypt_file (const char *prog, const char *in_path, const char *out_path,
                               ? crypto_secretstream_xchacha20poly1305_TAG_FINAL
                               : 0;
           unsigned long long out_len;
-          if (crypto_secretstream_xchacha20poly1305_push (
-                  &state, chunk_out, &out_len,
-                  chunk_in, (size_t) got,
-                  header_base, METADATA_BASE_SIZE, tag) != 0)
+          if (push_chunk (&state, chunk_in, (size_t) got, tag,
+                          chunk_out, &out_len, header_base) != 0
+              || write_out (out_fd, chunk_out, (size_t) out_len, prog) != 0)
             goto cleanup;
-
-          if (write_all (out_fd, chunk_out, (size_t) out_len)
-              != (ssize_t) out_len)
-            {
-              fprintf (stderr, _("%s: error: write failed: %s\n"),
-                       prog, strerror (errno));
-              goto cleanup;
-            }
 
           if (is_final)
             break;
@@ -308,43 +400,7 @@ cleanup:
   sodium_memzero (&state, sizeof (state));
   if (in_fd != -1 && !in_is_pipe)
     close (in_fd);
-  if (out_fd != -1 && out_is_file)
-    {
-      /* Flush data to disk before the rename: the rename is only meaningful
-         once the bytes it points at are actually durable.  (A stream to stdout
-         gets neither fsync nor rename -- that is the Unix filter contract.)  */
-      if (res && fsync (out_fd) != 0)
-        {
-          fprintf (stderr, _("%s: error: fsync failed: %s\n"),
-                   prog, strerror (errno));
-          res = 0;
-        }
-      close (out_fd);
-    }
-  if (out_is_file && res && tmp_path)
-    {
-      /* rename() is atomic on success, so a reader sees either the old file
-         or the complete new one, never a partial container.  */
-      if (rename (tmp_path, out_path) != 0)
-        {
-          fprintf (stderr, _("%s: error: cannot rename temporary file: %s\n"),
-                   prog, strerror (errno));
-          unlink (tmp_path);
-          res = 0;
-        }
-      else if (fsync_dir (out_path) != 0)
-        {
-          fprintf (stderr, _("%s: warning: failed to sync parent directory: %s\n"),
-                   prog, strerror (errno));
-        }
-    }
-  else if (out_is_file && tmp_path)
-    {
-      /* Failure path: drop the half-written temporary.  */
-      unlink (tmp_path);
-    }
-  free (tmp_path);
-  return res;
+  return finalize_output (prog, res, out_fd, out_is_file, tmp_path, out_path);
 }
 
 int
@@ -411,16 +467,9 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
   unsigned long long memlimit = deserialize_uint64 (header_base + OFST_MEMLIMIT);
   uint64_t payload_len        = deserialize_uint64 (header_base + OFST_PAYLOAD);
 
-  /* The KDF parameters come straight from an untrusted file and feed an
-     allocation, so they must be bounded before use.  These bytes are not yet
-     authenticated (the key derived from them is what authenticates), so the
-     check has to happen here, before crypto_pwhash runs.  */
-  if (opslimit < crypto_pwhash_opslimit_min ()
-      || opslimit > crypto_pwhash_opslimit_max ()
-      || opslimit > g_max_opslimit
-      || memlimit < crypto_pwhash_memlimit_min ()
-      || memlimit > crypto_pwhash_memlimit_max ()
-      || memlimit > g_max_memlimit)
+  /* These bytes are not yet authenticated (the key derived from them is what
+     authenticates), so they must be bounded here, before crypto_pwhash runs.  */
+  if (!kdf_params_in_range (opslimit, memlimit))
     {
       fprintf (stderr,
                _("%s: error: Argon2id parameters in header are out of range\n"),
@@ -456,36 +505,10 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
         }
     }
 
-  if (is_stdio (out_path))
-    {
-      out_fd = STDOUT_FILENO;
-    }
-  else
-    {
-      out_is_file = 1;
-
-      if (!in_is_pipe && check_same_file (in_fd, out_path))
-        {
-          fprintf (stderr,
-                   _("%s: error: input and output paths refer to the same file\n"),
-                   prog);
-          goto cleanup;
-        }
-
-      if (asprintf (&tmp_path, "%s.tmp", out_path) < 0)
-        {
-          tmp_path = NULL;
-          goto cleanup;
-        }
-
-      out_fd = open (tmp_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
-      if (out_fd == -1)
-        {
-          fprintf (stderr, _("%s: %s: cannot create temporary output file: %s\n"),
-                   prog, tmp_path, strerror (errno));
-          goto cleanup;
-        }
-    }
+  out_fd = open_output (prog, out_path, in_fd, in_is_pipe,
+                        &tmp_path, &out_is_file);
+  if (out_fd == -1)
+    goto cleanup;
 
   key       = secure_malloc (KEY_SIZE);
   chunk_in  = secure_malloc (CHUNK_SIZE + CRYPTO_ABYTES);
@@ -539,15 +562,9 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
             }
           unsigned char tag;
           unsigned long long out_len;
-          if (crypto_secretstream_xchacha20poly1305_pull (
-                  &state, chunk_out, &out_len, &tag,
-                  chunk_in, to_read_enc,
-                  header_base, METADATA_BASE_SIZE) != 0)
-            {
-              fprintf (stderr, _("%s: error: authentication failed"
-                                 " (wrong password or corrupted file)\n"), prog);
-              goto cleanup;
-            }
+          if (pull_chunk (&state, chunk_in, to_read_enc,
+                          chunk_out, &out_len, &tag, header_base, prog) != 0)
+            goto cleanup;
           /* On the last expected chunk the stream must also report FINAL; a
              mismatch means bytes were cut from the end.  */
           if (remaining == to_read_plain
@@ -556,13 +573,8 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
               fprintf (stderr, _("%s: error: stream truncation detected\n"), prog);
               goto cleanup;
             }
-          if (write_all (out_fd, chunk_out, (size_t) out_len)
-              != (ssize_t) out_len)
-            {
-              fprintf (stderr, _("%s: error: write failed: %s\n"),
-                       prog, strerror (errno));
-              goto cleanup;
-            }
+          if (write_out (out_fd, chunk_out, (size_t) out_len, prog) != 0)
+            goto cleanup;
           remaining -= to_read_plain;
         }
       while (remaining > 0);
@@ -597,15 +609,9 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
 
           unsigned char tag;
           unsigned long long out_len;
-          if (crypto_secretstream_xchacha20poly1305_pull (
-                  &state, chunk_out, &out_len, &tag,
-                  chunk_in, (size_t) got,
-                  header_base, METADATA_BASE_SIZE) != 0)
-            {
-              fprintf (stderr, _("%s: error: authentication failed"
-                                 " (wrong password or corrupted file)\n"), prog);
-              goto cleanup;
-            }
+          if (pull_chunk (&state, chunk_in, (size_t) got,
+                          chunk_out, &out_len, &tag, header_base, prog) != 0)
+            goto cleanup;
 
           if (u64_add_overflow (total, out_len, &total)
               || total > g_max_filesize)
@@ -616,13 +622,8 @@ decrypt_file (const char *prog, const char *in_path, const char *out_path,
               goto cleanup;
             }
 
-          if (write_all (out_fd, chunk_out, (size_t) out_len)
-              != (ssize_t) out_len)
-            {
-              fprintf (stderr, _("%s: error: write failed: %s\n"),
-                       prog, strerror (errno));
-              goto cleanup;
-            }
+          if (write_out (out_fd, chunk_out, (size_t) out_len, prog) != 0)
+            goto cleanup;
 
           if (tag == crypto_secretstream_xchacha20poly1305_TAG_FINAL)
             break;
@@ -645,35 +646,5 @@ cleanup:
   sodium_memzero (&state, sizeof (state));
   if (in_fd != -1 && !in_is_pipe)
     close (in_fd);
-  if (out_fd != -1 && out_is_file)
-    {
-      if (res && fsync (out_fd) != 0)
-        {
-          fprintf (stderr, _("%s: error: fsync failed: %s\n"),
-                   prog, strerror (errno));
-          res = 0;
-        }
-      close (out_fd);
-    }
-  if (out_is_file && res && tmp_path)
-    {
-      if (rename (tmp_path, out_path) != 0)
-        {
-          fprintf (stderr, _("%s: error: cannot rename temporary file: %s\n"),
-                   prog, strerror (errno));
-          unlink (tmp_path);
-          res = 0;
-        }
-      else if (fsync_dir (out_path) != 0)
-        {
-          fprintf (stderr, _("%s: warning: failed to sync parent directory: %s\n"),
-                   prog, strerror (errno));
-        }
-    }
-  else if (out_is_file && tmp_path)
-    {
-      unlink (tmp_path);
-    }
-  free (tmp_path);
-  return res;
+  return finalize_output (prog, res, out_fd, out_is_file, tmp_path, out_path);
 }

@@ -324,18 +324,36 @@ test_read_password_fd (void)
   assert (write (fds[1], line, strlen (line)) == (ssize_t) strlen (line));
   close (fds[1]);
   char buf[256];
-  ssize_t n = read_password_fd (fds[0], buf, sizeof buf);
+  int trunc = -1;
+  ssize_t n = read_password_fd (fds[0], buf, sizeof buf, &trunc);
   close (fds[0]);
   assert (n == 11);
   assert (strcmp (buf, "hunter2pass") == 0);
+  assert (trunc == 0);
   printf ("OK\n");
 
   printf ("Testing read_password_fd (empty input)... ");
   assert (pipe (fds) == 0);
   close (fds[1]);              /* immediate EOF */
-  n = read_password_fd (fds[0], buf, sizeof buf);
+  n = read_password_fd (fds[0], buf, sizeof buf, NULL);
   close (fds[0]);
   assert (n == 0 && buf[0] == '\0');
+  printf ("OK\n");
+
+  printf ("Testing read_password_fd (truncation flag)... ");
+  assert (pipe (fds) == 0);
+  /* A line longer than the buffer fills it and reports truncation; the excess
+     is consumed rather than left behind.  */
+  char big[40];
+  memset (big, 'x', sizeof big);
+  assert (write (fds[1], big, sizeof big) == (ssize_t) sizeof big);
+  close (fds[1]);
+  char small[8];
+  trunc = -1;
+  n = read_password_fd (fds[0], small, sizeof small, &trunc);
+  close (fds[0]);
+  assert (n == (ssize_t) (sizeof small - 1));
+  assert (trunc == 1);
   printf ("OK\n");
 }
 

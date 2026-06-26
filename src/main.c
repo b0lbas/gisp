@@ -61,12 +61,6 @@ parse_ull (const char *str, unsigned long long *out)
   return 0;
 }
 
-static int
-is_stdio (const char *path)
-{
-  return path && path[0] == '-' && path[1] == '\0';
-}
-
 static void
 print_usage (void)
 {
@@ -353,6 +347,7 @@ main (int argc, char *argv[])
     }
 
   ssize_t p_len;
+  int p_truncated = 0;
   if (noninteractive)
     {
       int src_fd = pass_fd;
@@ -369,14 +364,14 @@ main (int argc, char *argv[])
             }
           close_src = 1;
         }
-      p_len = read_password_fd (src_fd, pass_buf, MAX_PASS_LEN);
+      p_len = read_password_fd (src_fd, pass_buf, MAX_PASS_LEN, &p_truncated);
       if (close_src)
         close (src_fd);
     }
   else
     {
       p_len = get_password_secure (_("Enter master password: "),
-                                   pass_buf, MAX_PASS_LEN);
+                                   pass_buf, MAX_PASS_LEN, &p_truncated);
     }
 
   if (p_len < (ssize_t) min_pass_len)
@@ -389,7 +384,7 @@ main (int argc, char *argv[])
       return 1;
     }
 
-  if (p_len == MAX_PASS_LEN - 1)
+  if (p_truncated)
     fprintf (stderr, _("%s: warning: password truncated to %d characters\n"),
              PROGRAM_NAME, MAX_PASS_LEN - 1);
 
@@ -405,7 +400,7 @@ main (int argc, char *argv[])
           return 1;
         }
       ssize_t c_len = get_password_secure (_("Confirm password: "),
-                                           confirm_buf, MAX_PASS_LEN);
+                                           confirm_buf, MAX_PASS_LEN, NULL);
       /* Compare in constant time over the whole buffer, not just the used
          length, so timing never reveals where two passwords first differ.  */
       int mismatch = (c_len != p_len)

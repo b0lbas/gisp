@@ -33,7 +33,7 @@ LLVMFuzzerTestOneInput (const unsigned char *data, size_t size)
   close (fds[1]);
 
   char buf[MAX_PASS_LEN];
-  read_password_fd (fds[0], buf, sizeof buf);
+  read_password_fd (fds[0], buf, sizeof buf, NULL);
   close (fds[0]);
   return 0;
 }

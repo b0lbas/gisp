@@ -76,6 +76,23 @@
 
 #define PROGRAM_NAME  "gisp"
 
+/* On-disk container layout (all multi-byte fields little-endian):
+
+     offset  size  field
+     ------  ----  ----------------------------------------------------------
+        0      4   MAGIC      "GISP"
+        4      2   VERSION    format version (currently 1)
+        6      8   OPSLIMIT   Argon2id ops cost
+       14      8   MEMLIMIT   Argon2id memory cost, bytes
+       22  SALT_SIZE SALT     per-file random salt
+       22+S    8   PAYLOAD    plaintext length, or PAYLOAD_LEN_UNKNOWN (stream)
+     ----------------------- METADATA_BASE_SIZE -----------------------------
+       ...  STREAM_HDR_SIZE   libsodium secretstream header
+     ----------------------- HEADER_TOTAL_SIZE ------------------------------
+       ...      ...           chunks: ciphertext + CRYPTO_ABYTES tag each
+
+   The METADATA_BASE_SIZE prefix is authenticated as AAD on every chunk, so a
+   single bit flipped anywhere in it makes decryption fail.  */
 #define OFST_MAGIC    0
 #define OFST_VERSION  4
 #define OFST_OPSLIMIT 6
@@ -90,6 +107,10 @@
    Common utilities (src/common.c).
    --------------------------------------------------------------------------- */
 
+/* A path of "-" selects standard input/output instead of a named file.
+   Accepts NULL (treated as "not a stream") so callers need no extra guard.  */
+int     is_stdio (const char *path);
+
 void   *secure_malloc (size_t size);
 void    secure_free (void *ptr);
 
@@ -101,6 +122,9 @@ uint16_t deserialize_uint16 (const unsigned char *buf);
 void     serialize_uint64 (unsigned char *buf, uint64_t val);
 uint64_t deserialize_uint64 (const unsigned char *buf);
 
+/* Checked 64-bit arithmetic on sizes taken from an untrusted header.  Exported
+   (not static) so proof/overflow_proof.c can exercise them directly against an
+   exhaustive reference.  Each returns non-zero on overflow.  */
 int u64_add_overflow (uint64_t a, uint64_t b, uint64_t *result);
 int u64_mul_overflow (uint64_t a, uint64_t b, uint64_t *result);
 
@@ -119,12 +143,18 @@ int fsync_dir (const char *path);
    --------------------------------------------------------------------------- */
 
 int     terminal_init_signals (void);
-ssize_t get_password_secure (const char *prompt, char *buf, size_t max_len);
+
+/* Read one line of passphrase (up to MAX_LEN-1 bytes) into BUF.  Both readers
+   return the stored length, or -1 on error/empty input, and set *TRUNCATED to
+   1 when the line was longer than the buffer and the excess was discarded.
+   TRUNCATED may be NULL if the caller does not care.  */
+ssize_t get_password_secure (const char *prompt, char *buf, size_t max_len,
+                             int *truncated);
 
 /* Read a single line of passphrase from an already-open descriptor (a pipe,
    a regular file, or a user-supplied fd).  No echo handling: the source is
    not assumed to be a terminal.  Used for non-interactive pipelines.  */
-ssize_t read_password_fd (int fd, char *buf, size_t max_len);
+ssize_t read_password_fd (int fd, char *buf, size_t max_len, int *truncated);
 
 /* ---------------------------------------------------------------------------
    Cryptographic core (src/crypto.c).

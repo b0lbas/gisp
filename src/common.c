@@ -28,6 +28,14 @@
 
 #include "gisp.h"
 
+/* A path of "-" selects a standard stream instead of a named file.  The NULL
+   guard lets callers pass an unset path without a separate check.  */
+int
+is_stdio (const char *path)
+{
+  return path && path[0] == '-' && path[1] == '\0';
+}
+
 /* Allocate memory for secrets.  sodium_malloc surrounds the region with
    guard pages, locks it out of swap, and zeroes it on free, so keys and
    passwords cannot leak to disk or linger after use.  */
@@ -165,10 +173,6 @@ u64_mul_overflow (uint64_t a, uint64_t b, uint64_t *result)
 #endif
 }
 
-/* Decide whether an open fd and a path are the same file by comparing
-   device and inode, not the path strings.  String comparison would miss
-   symlinks, hard links, "./foo" vs "foo", and absolute vs relative forms,
-   any of which would let us overwrite the input while still reading it.  */
 int
 container_size_for_payload (uint64_t payload_len, uint64_t *result)
 {
@@ -189,6 +193,10 @@ container_size_for_payload (uint64_t payload_len, uint64_t *result)
   return 0;
 }
 
+/* Decide whether an open fd and a path are the same file by comparing
+   device and inode, not the path strings.  String comparison would miss
+   symlinks, hard links, "./foo" vs "foo", and absolute vs relative forms,
+   any of which would let us overwrite the input while still reading it.  */
 int
 check_same_file (int fd1, const char *path2)
 {
@@ -203,7 +211,11 @@ check_same_file (int fd1, const char *path2)
 int
 safely_open_input (const char *prog, const char *path, int64_t *out_size)
 {
-  int fd = open (path, O_RDONLY);
+  /* O_NONBLOCK so the open itself cannot hang: a plain O_RDONLY open of a FIFO
+     with no writer (or of some devices) blocks indefinitely, before we ever get
+     to reject it below.  Regular files ignore the flag; we clear it afterwards
+     regardless so subsequent reads keep ordinary blocking semantics.  */
+  int fd = open (path, O_RDONLY | O_NONBLOCK);
   if (fd == -1)
     {
       fprintf (stderr, _("%s: %s: cannot open file: %s\n"),
@@ -218,6 +230,21 @@ safely_open_input (const char *prog, const char *path, int64_t *out_size)
       close (fd);
       return -1;
     }
+  /* Only a regular file has a meaningful stattable length to drive the
+     fixed-size code path.  A FIFO or device reports st_size 0, which would be
+     silently treated as an empty input; reject it so the caller is told to use
+     "-" for a real stream instead of producing a truncated container.  */
+  if (!S_ISREG (st.st_mode))
+    {
+      fprintf (stderr,
+               _("%s: %s: not a regular file (use '-' to read a stream)\n"),
+               prog, path);
+      close (fd);
+      return -1;
+    }
+  int flags = fcntl (fd, F_GETFL);
+  if (flags != -1)
+    (void) fcntl (fd, F_SETFL, flags & ~O_NONBLOCK);
   *out_size = (int64_t) st.st_size;
   return fd;
 }

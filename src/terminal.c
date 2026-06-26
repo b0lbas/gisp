@@ -27,8 +27,10 @@
 
 #include "gisp.h"
 
-/* Shared with the signal handler, hence volatile sig_atomic_t: the handler
-   must see the current terminal state to know whether echo needs restoring.  */
+/* Shared with the signal handler.  The two flags it reads are volatile
+   sig_atomic_t so the handler always sees their current value; g_old_termios
+   is the saved terminal state the handler restores, only ever touched while
+   g_tty_hidden is being set or cleared with signals blocked.  */
 static struct termios        g_old_termios;
 static volatile sig_atomic_t g_tty_hidden = 0;
 static volatile sig_atomic_t g_tty_fd     = -1;
@@ -109,17 +111,21 @@ terminal_init_signals (void)
 }
 
 ssize_t
-read_password_fd (int fd, char *buf, size_t max_len)
+read_password_fd (int fd, char *buf, size_t max_len, int *truncated)
 {
+  if (truncated)
+    *truncated = 0;
   if (max_len == 0)
     return -1;
 
   /* Read one line, exactly like the interactive path but without any terminal
      handling: the source is a pipe or file, so there is no echo to suppress
      and no /dev/tty involved.  This is what makes non-interactive pipelines
-     work.  */
+     work.  Read to the end of the line even past the buffer so any overflow is
+     consumed (not left for a later read) and reported as truncation.  */
   size_t nread = 0;
-  while (nread < max_len - 1)
+  int trunc = 0;
+  for (;;)
     {
       char c;
       ssize_t n = read (fd, &c, 1);
@@ -132,16 +138,25 @@ read_password_fd (int fd, char *buf, size_t max_len)
         }
       if (n == 0 || c == '\n' || c == '\r')
         break;
-      buf[nread++] = c;
+      if (nread < max_len - 1)
+        buf[nread++] = c;
+      else
+        trunc = 1;
     }
   buf[nread] = '\0';
 
+  if (truncated)
+    *truncated = trunc;
   return (ssize_t) nread;
 }
 
 ssize_t
-get_password_secure (const char *prompt, char *buf, size_t max_len)
+get_password_secure (const char *prompt, char *buf, size_t max_len,
+                     int *truncated)
 {
+  if (truncated)
+    *truncated = 0;
+
   /* Zero the whole buffer up front so the unused tail is deterministic.  The
      caller's constant-time confirmation compares the full buffer, not just the
      used length; this makes that comparison's correctness self-evident instead
@@ -191,7 +206,8 @@ get_password_secure (const char *prompt, char *buf, size_t max_len)
   (void) write (tty_fd, prompt, strlen (prompt));
 
   size_t nread = 0;
-  while (nread < max_len - 1)
+  int trunc = 0;
+  for (;;)
     {
       char c;
       ssize_t n = read (tty_fd, &c, 1);
@@ -202,11 +218,17 @@ get_password_secure (const char *prompt, char *buf, size_t max_len)
           if (errno == EINTR)
             continue;
           nread = 0;
+          trunc = 0;
           break;
         }
       if (n == 0 || c == '\n' || c == '\r')
         break;
-      buf[nread++] = c;
+      /* Keep reading past the buffer so the whole line is consumed, but stop
+         storing once it is full and remember that it overflowed.  */
+      if (nread < max_len - 1)
+        buf[nread++] = c;
+      else
+        trunc = 1;
     }
   buf[nread] = '\0';
 
@@ -228,5 +250,7 @@ get_password_secure (const char *prompt, char *buf, size_t max_len)
       return -1;
     }
 
+  if (truncated)
+    *truncated = trunc;
   return (ssize_t) nread;
 }
