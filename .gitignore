@@ -9,9 +9,12 @@
 # Build products
 *.o
 *.a
+*.so
 /gisp
 src/gisp
 tests/test_runner
+tests/faultlib.so
+tests/byteflip
 tests/*.log
 tests/*.trs
 test-suite.log
@@ -19,6 +22,14 @@ audit/byteflip
 audit/constants
 gisp-*.tar.gz
 gisp-*.tar.*
+
+# Fuzz harness binaries and libFuzzer artifacts (built ad hoc / by ci/run.sh)
+/fuzz_roundtrip
+/fuzz_decrypt
+/fuzz_password
+crash-*
+leak-*
+timeout-*
 
 # Autotools-generated files (regenerate with ./autogen.sh)
 Makefile

@@ -1,0 +1,21 @@
+# CI for gisp.  The project's home is GNU Savannah; this workflow runs only on
+# a GitHub mirror, if one exists.  The real logic lives in ci/run.sh so it can
+# be run identically by hand or by any other CI system.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake autopoint gettext libsodium-dev texinfo clang
+      - name: Run the CI pipeline
+        run: sh ci/run.sh

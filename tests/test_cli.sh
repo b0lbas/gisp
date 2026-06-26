@@ -81,5 +81,46 @@ if "$GISP" -d "$work/v3" -o "$work/x" --max-memlimit 1024 \
   fail "operator memory ceiling not enforced"
 fi
 
+# 11. An operator ceiling below the requested KDF cost rejects on encrypt too.
+if "$GISP" -e "$work/plain" -o "$work/x" --max-memlimit 1024 \
+           --passphrase-file "$pw" 2>/dev/null; then
+  fail "operator memory ceiling not enforced on encrypt"
+fi
+
+# 12. A non-regular file as input is rejected, and must not hang.  timeout(1),
+#     when present, turns a regression that re-blocks on the open into a failure
+#     instead of a hung test run.
+if command -v timeout >/dev/null 2>&1; then tmo="timeout 10"; else tmo=""; fi
+mkfifo "$work/fifo"
+if $tmo "$GISP" -e "$work/fifo" -o "$work/x" --passphrase-file "$pw" 2>/dev/null
+then
+  fail "non-regular (FIFO) input accepted"
+fi
+rm -f "$work/fifo"
+
+# 13. Tampering is always detected.  The metadata header is authenticated as
+#     AAD and every chunk carries a tag, so flipping any byte of a finished
+#     container must make decryption fail and leave no output behind.  v2 is a
+#     fixed-length container; offset 6 is inside the header (opslimit), and the
+#     last byte sits in the final chunk's authentication tag.
+byteflip="${BYTEFLIP:-./byteflip}"
+if [ -x "$byteflip" ]; then
+  last=$(( $(wc -c < "$work/v2") - 1 ))
+  for off in 6 "$last"; do
+    cp "$work/v2" "$work/tampered"
+    "$byteflip" "$work/tampered" "$off"
+    rm -f "$work/untamper"
+    if "$GISP" -d "$work/tampered" -o "$work/untamper" \
+               --passphrase-file "$pw" 2>/dev/null; then
+      fail "tampered container (offset $off) was accepted"
+    fi
+    if [ -e "$work/untamper" ]; then
+      fail "tampered decrypt (offset $off) left an output file"
+    fi
+  done
+else
+  echo "SKIP: byteflip helper not built; skipping tamper-detection test" >&2
+fi
+
 echo "All CLI/pipe integration tests passed."
 exit 0

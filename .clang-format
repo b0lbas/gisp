@@ -1,0 +1,9 @@
+# GNU coding style for gisp.
+#
+# Format the hand-written sources with:
+#   clang-format -i src/*.c include/*.h tests/test_core.c fuzz/*.c
+#
+# clang-format's built-in GNU style matches what this tree already follows by
+# hand (two-space indent, function return type on its own line, a space before
+# every parenthesis, braces on their own line).
+BasedOnStyle: GNU

@@ -9,14 +9,32 @@ check_PROGRAMS = test_runner
 test_runner_SOURCES = test_core.c
 test_runner_LDADD = $(top_builddir)/src/libgispcore.a $(SODIUM_LIBS) $(LIBINTL)
 
-## Point the shell integration test at the freshly built binary.
-AM_TESTS_ENVIRONMENT = GISP='$(abs_top_builddir)/src/gisp'; export GISP;
+## The fault-injection shim is an LD_PRELOAD shared object, so it is built with
+## an explicit rule rather than as a check_PROGRAM.  Listing it in check_DATA
+## makes "make check" build it before the tests run; test_faults.sh skips
+## itself cleanly on a platform where the preload is unavailable.
+check_DATA = faultlib.so byteflip$(EXEEXT)
+CLEANFILES = faultlib.so byteflip$(EXEEXT)
+faultlib.so: $(srcdir)/faultlib.c
+	$(AM_V_CC)$(CC) -shared -fPIC -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) \
+	  -o $@ $(srcdir)/faultlib.c $(LDFLAGS) -ldl
 
-TESTS = test_runner test_cli.sh test_vectors.sh
+## Reuse the audit byteflip helper to drive the tamper-detection test, rather
+## than re-implementing an in-place byte flip in portable shell.
+byteflip$(EXEEXT): $(top_srcdir)/audit/byteflip.c
+	$(AM_V_CC)$(CC) $(CPPFLAGS) $(CFLAGS) \
+	  -o $@ $(top_srcdir)/audit/byteflip.c $(LDFLAGS)
 
-## Shipped but not run by "make check": the portable shell tests and the
-## pinned format vectors, plus the (Linux-only) fault-injection tooling that
-## maintainers run under coverage.
+## Point the shell integration tests at the freshly built binary and helpers.
+AM_TESTS_ENVIRONMENT = \
+	GISP='$(abs_top_builddir)/src/gisp'; export GISP; \
+	FAULTLIB='$(abs_builddir)/faultlib.so'; export FAULTLIB; \
+	BYTEFLIP='$(abs_builddir)/byteflip$(EXEEXT)'; export BYTEFLIP;
+
+TESTS = test_runner test_cli.sh test_vectors.sh test_faults.sh
+
+## Shipped but not run automatically everywhere: the pinned format vectors and
+## the fault-injection source compiled into the preload shim above.
 EXTRA_DIST = \
 	test_cli.sh \
 	test_vectors.sh \
