@@ -314,6 +314,61 @@ test_same_file (void)
   unlink ("plain.tmp");
 }
 
+static void
+test_read_password_fd (void)
+{
+  printf ("Testing read_password_fd (line + newline strip)... ");
+  int fds[2];
+  assert (pipe (fds) == 0);
+  const char *line = "hunter2pass\nextra";
+  assert (write (fds[1], line, strlen (line)) == (ssize_t) strlen (line));
+  close (fds[1]);
+  char buf[256];
+  ssize_t n = read_password_fd (fds[0], buf, sizeof buf);
+  close (fds[0]);
+  assert (n == 11);
+  assert (strcmp (buf, "hunter2pass") == 0);
+  printf ("OK\n");
+
+  printf ("Testing read_password_fd (empty input)... ");
+  assert (pipe (fds) == 0);
+  close (fds[1]);              /* immediate EOF */
+  n = read_password_fd (fds[0], buf, sizeof buf);
+  close (fds[0]);
+  assert (n == 0 && buf[0] == '\0');
+  printf ("OK\n");
+}
+
+static void
+test_configurable_ceiling (void)
+{
+  printf ("Testing configurable operator ceiling... ");
+  create_dummy_file ("plain.tmp", 64);
+  int res = encrypt_file (TEST_PROG, "plain.tmp", "vault.tmp",
+                         TEST_PASS, strlen (TEST_PASS),
+                         crypto_pwhash_opslimit_min (),
+                         crypto_pwhash_memlimit_min ());
+  assert (res == 1);
+
+  /* Lower the memory ceiling below the container's memlimit: decrypt must
+     reject it even though the password is correct.  */
+  gisp_set_limits (0, 1024, 0);
+  res = decrypt_file (TEST_PROG, "vault.tmp", "decrypted.tmp",
+                     TEST_PASS, strlen (TEST_PASS));
+  assert (res == 0);
+
+  /* Restore the defaults; the very same container now decrypts cleanly.  */
+  gisp_set_limits (MAX_ALLOWED_OPSLIMIT, MAX_ALLOWED_MEMLIMIT, MAX_VAULT_FILE_SIZE);
+  res = decrypt_file (TEST_PROG, "vault.tmp", "decrypted.tmp",
+                     TEST_PASS, strlen (TEST_PASS));
+  assert (res == 1);
+  assert (compare_files ("plain.tmp", "decrypted.tmp"));
+  printf ("OK\n");
+  unlink ("plain.tmp");
+  unlink ("vault.tmp");
+  unlink ("decrypted.tmp");
+}
+
 int
 main (void)
 {
@@ -339,6 +394,8 @@ main (void)
   test_file_permissions ();
   test_partial_header ();
   test_same_file ();
+  test_read_password_fd ();
+  test_configurable_ceiling ();
   printf ("\nAll tests passed successfully!\n");
   return 0;
 }
