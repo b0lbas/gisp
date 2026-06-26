@@ -1,0 +1,25 @@
+== 1. AAD coverage: tampering authenticated header fields must fail ==
+  PASS: tamper opslimit (offset 6) rejected
+  PASS: tamper memlimit (offset 14) rejected
+  PASS: tamper salt (offset 22) rejected
+  PASS: tamper payload_len (offset 38) rejected
+  PASS: tamper stream_header (offset 50) rejected
+== 2. Secretstream header is implicitly authenticated ==
+  PASS: stream header byte 60 rejected
+== 3. Chunk reordering must fail (sequence authentication) ==
+  PASS: reordered chunks rejected
+== 4. Cross-file chunk splicing must fail (per-file key/salt) ==
+  PASS: spliced cross-file chunks rejected
+== 5. Trailing data after the stream must fail ==
+  PASS: fixed-mode trailing data rejected
+  PASS: streamed-mode trailing data rejected
+== 6. Truncation must fail ==
+  PASS: truncated container rejected
+== 7. Symlinked output: rename must replace the link, not write through ==
+  PASS: symlink target untouched; link replaced by regular file
+== 8. Oracle check: wrong password vs corruption give the same message ==
+    wrong-password : gisp: error: authentication failed (wrong password or corrupted file)
+    corrupted-data : gisp: error: authentication failed (wrong password or corrupted file)
+  PASS: messages identical (no wrong-password oracle)
+
+RESULT: 13 passed, 0 failed

@@ -1,0 +1,12 @@
+MAGIC offset/size      : 0 / 4
+VERSION offset/size    : 4 / 2
+OPSLIMIT offset/size   : 6 / 8
+MEMLIMIT offset/size   : 14 / 8
+SALT offset/size       : 22 / 16
+PAYLOAD_LEN offset/size: 38 / 8
+METADATA_BASE_SIZE(AAD): 46
+STREAM_HDR offset/size : 46 / 24
+HEADER_TOTAL_SIZE      : 70  (chunks start here)
+CRYPTO_ABYTES per chunk: 17
+CHUNK_SIZE             : 65536
+PAYLOAD_LEN_UNKNOWN    : 0xffffffffffffffff
